@@ -1,5 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
+import os from "os";
 import path from "path";
 import { AdvancedSettings, DEFAULT_SETTINGS, buildAdvancedArgs } from "./settings";
 
@@ -8,10 +9,58 @@ export const YTDLP_PATH =
   process.env.YTDLP_PATH ||
   "C:\\Users\\hamza\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\yt-dlp.exe";
 
-/** Where finished files land. */
-export const DOWNLOADS_DIR = path.join(process.cwd(), "downloads");
+/**
+ * Temporary staging area for in-flight downloads. This is NOT the final
+ * destination — files here are streamed to the client's browser and deleted
+ * from the server as soon as they've been delivered (or if they go stale).
+ */
+export const STAGING_DIR = path.join(os.tmpdir(), "ytbdwnld-staging");
 
-if (!existsSync(DOWNLOADS_DIR)) mkdirSync(DOWNLOADS_DIR, { recursive: true });
+/**
+ * yt-dlp is a Python program. When its stdout is a pipe on Windows, Python
+ * defaults to the locale codepage (e.g. cp1252), so non-ASCII characters in
+ * titles — like the FILEPATH line we parse — come through mangled (usually as
+ * "?"). Forcing UTF-8 on both the Python runtime and the pipe keeps the
+ * captured filename byte-identical to the one on disk.
+ */
+const YTDLP_ENV = {
+  ...process.env,
+  PYTHONIOENCODING: "utf-8",
+  PYTHONUTF8: "1",
+};
+
+if (!existsSync(STAGING_DIR)) mkdirSync(STAGING_DIR, { recursive: true });
+
+/** Files untouched for longer than this are swept from staging. */
+const STALE_FILE_MS = 60 * 60 * 1000;
+
+/** Delete a staged file, ignoring errors (it may already be gone). */
+export function deleteStagedFile(filename: string | null | undefined): void {
+  if (!filename) return;
+  try {
+    unlinkSync(path.join(STAGING_DIR, filename));
+  } catch {
+    /* already deleted or never existed */
+  }
+}
+
+/** Remove stale leftovers from previous runs (crashed jobs, never-fetched files). */
+export function sweepStaleFiles(): void {
+  try {
+    const cutoff = Date.now() - STALE_FILE_MS;
+    for (const name of readdirSync(STAGING_DIR)) {
+      const full = path.join(STAGING_DIR, name);
+      try {
+        if (statSync(full).mtimeMs < cutoff) unlinkSync(full);
+      } catch {
+        /* file vanished mid-sweep */
+      }
+    }
+  } catch {
+    /* staging dir unreadable — nothing to do */
+  }
+}
+sweepStaleFiles();
 
 export type JobStatus = "starting" | "downloading" | "merging" | "done" | "error";
 
@@ -65,7 +114,7 @@ export async function fetchInfo(url: string): Promise<VideoInfo> {
       if (!settled) { settled = true; reject(new Error("Timed out fetching video info")); }
     }, INFO_TIMEOUT_MS);
     try {
-      const proc = spawn(YTDLP_PATH, args, { windowsHide: true });
+      const proc = spawn(YTDLP_PATH, args, { windowsHide: true, env: YTDLP_ENV });
       let stdout = "", stderr = "";
       proc.stdout.on("data", (d) => { stdout += d.toString(); });
       proc.stderr.on("data", (d) => { stderr += d.toString(); });
@@ -141,7 +190,7 @@ export function startDownload(opts: DownloadOptions): Job {
     "--print",
     "after_move:FILEPATH:%(filepath)s",
     "-o",
-    path.join(DOWNLOADS_DIR, adv.outputTemplate.trim() || "%(title)s [%(id)s].%(ext)s"),
+    path.join(STAGING_DIR, adv.outputTemplate.trim() || "%(title)s [%(id)s].%(ext)s"),
   );
   args.push(...buildAdvancedArgs(adv));
   args.push(opts.url);
@@ -149,7 +198,7 @@ export function startDownload(opts: DownloadOptions): Job {
   job.status = "starting";
   job.log = [`$ yt-dlp ${args.join(" ")}`];
 
-  const proc = spawn(YTDLP_PATH, args, { windowsHide: true });
+  const proc = spawn(YTDLP_PATH, args, { windowsHide: true, env: YTDLP_ENV });
   job.process = proc;
 
   proc.stdout.setEncoding("utf8");

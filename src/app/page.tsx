@@ -94,6 +94,21 @@ export default function Home() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const autoSavedRef = useRef<string | null>(null);
+
+  // The moment a job finishes, push the file to the client's disk via the
+  // browser's own download flow (goes to the user's Downloads folder).
+  useEffect(() => {
+    if (job?.status === "done" && job.filename && autoSavedRef.current !== job.id) {
+      autoSavedRef.current = job.id;
+      const a = document.createElement("a");
+      a.href = `/api/file/${job.id}`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  }, [job?.status, job?.id, job?.filename]);
 
   // Load advanced settings once, then persist every change.
   useEffect(() => {
@@ -212,10 +227,8 @@ export default function Home() {
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-bold tracking-tight">🎬 ytbdwnld</h1>
             <p className="text-sm text-zinc-400">
-              Paste a video URL. Powered by yt-dlp. Files land in{" "}
-              <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs">
-                ytbdwnld/downloads/
-              </code>
+              Paste a video URL. Powered by yt-dlp. Finished files are saved
+              straight to your browser&apos;s Downloads folder.
             </p>
           </div>
           <button
@@ -429,15 +442,23 @@ export default function Home() {
                   <span className="truncate text-sm text-emerald-300">
                     {job.filename}
                   </span>
-                  <a
-                    href={`/api/file/${job.id}`}
+                  <button
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = `/api/file/${job.id}`;
+                      a.rel = "noopener";
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    }}
                     className="ml-3 shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
                   >
-                    ⬇ Save to browser
-                  </a>
+                    ⬇ Save again
+                  </button>
                 </div>
                 <span className="text-xs text-zinc-500">
-                  Also saved on disk in <code>ytbdwnld/downloads/</code>
+                  Saved to your browser&apos;s Downloads folder. If the browser
+                  blocked the automatic save, use the button above.
                 </span>
               </div>
             )}
