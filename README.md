@@ -17,6 +17,20 @@ npm run dev   # http://localhost:3000
 npm run build && npm start
 ```
 
+## Docker (self-hosting)
+
+The image bundles **yt-dlp** (via pip), **ffmpeg** and Node — no local installs needed:
+
+```bash
+docker compose up -d --build     # http://localhost:3000
+# or without compose:
+docker build -t ytbdwnld . && docker run -d -p 3000:3000 --name ytbdwnld ytbdwnld
+```
+
+- The app runs as a non-root user and listens on port `3000` (override with `-p HOST:3000`).
+- Downloads are staged in a temp dir inside the container and streamed to your browser, so nothing accumulates — recreating the container loses nothing but in-flight jobs.
+- yt-dlp breaks whenever YouTube changes — occasionally rebuild with `docker compose up -d --build --pull` to pick up a fresh extractor.
+
 ## What it does
 
 1. Paste a video URL → `POST /api/info` returns title, channel, duration, thumbnail (via `yt-dlp -J --flat-playlist`)

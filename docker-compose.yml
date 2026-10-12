@@ -1,0 +1,11 @@
+services:
+  ytbdwnld:
+    build: .
+    image: ytbdwnld
+    container_name: ytbdwnld
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    # yt-dlp/ffmpeg settings can be overridden here, e.g.:
+    # environment:
+    #   YTDLP_PATH: /usr/bin/yt-dlp

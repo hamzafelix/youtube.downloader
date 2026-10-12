@@ -1,0 +1,22 @@
+# Dependencies — npm ci installs fresh inside the image (correct platform)
+node_modules
+
+# Build output — rebuilt inside the image
+.next
+
+# User's downloaded videos must never enter the build context
+downloads
+
+# Git / local files
+.git
+.gitignore
+README.md
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+
+# Secrets and logs
+.env*
+*.log
+tsconfig.tsbuildinfo

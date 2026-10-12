@@ -25,19 +25,22 @@ export default function SettingsModal({ open, onClose, settings, onChange }: Pro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+      className="anim-fade fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+        className="anim-modal glow-card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-          <h2 className="text-sm font-semibold">⚙️ All yt-dlp settings</h2>
+          <h2 className="text-sm font-semibold">
+            <span className="anim-spin-slow mr-1 inline-block">⚙️</span> All
+            yt-dlp settings
+          </h2>
           <button
             onClick={onClose}
             aria-label="Close settings"
-            className="rounded-md px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md px-2 py-1 text-sm text-zinc-400 transition-all duration-200 hover:rotate-90 hover:bg-zinc-800 hover:text-zinc-200"
           >
             ✕
           </button>
@@ -50,13 +53,13 @@ export default function SettingsModal({ open, onClose, settings, onChange }: Pro
         <footer className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
           <button
             onClick={() => onChange({ ...DEFAULT_SETTINGS })}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-200 hover:border-zinc-500 hover:bg-zinc-800 active:scale-95"
           >
             ↺ Reset to defaults
           </button>
           <button
             onClick={onClose}
-            className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+            className="btn-vibrant rounded-lg px-4 py-1.5 text-xs font-semibold text-white"
           >
             Done
           </button>
