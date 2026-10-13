@@ -105,9 +105,30 @@ export interface VideoInfo {
 
 const INFO_TIMEOUT_MS = 30_000;
 
+/**
+ * Server-side fallback for YouTube's "Sign in to confirm you're not a bot"
+ * check, which datacenter IPs (VPS/cloud deployments) hit without cookies.
+ * We ask via player clients that are currently checked less aggressively
+ * and pace requests so traffic looks human. Skipped when the client already
+ * passed its own --extractor-args (avoids conflicting client overrides).
+ * These flags are cat-and-mouse: if the error returns, swap the client list
+ * (try "mweb", "android_vr") and rebuild for a fresh yt-dlp.
+ */
+const PLAYER_CLIENT_FALLBACK = ["--extractor-args", "youtube:player_client=tv,web_safari"];
+const RATE_FALLBACK = ["--sleep-requests", "2", "--sleep-interval", "5", "--max-sleep-interval", "10"];
+
+function withBotFallbacks(args: string[], includeRate: boolean): string[] {
+  if (args.some((a) => a.startsWith("--extractor-args"))) return args;
+  return [...args, ...(includeRate ? [...PLAYER_CLIENT_FALLBACK, ...RATE_FALLBACK] : PLAYER_CLIENT_FALLBACK)];
+}
+
 /** Fetch metadata for a URL. Playlists are detected (not expanded). */
 export async function fetchInfo(url: string): Promise<VideoInfo> {
-  const args = ["-J", "--flat-playlist", "--no-warnings", "--skip-download", "--js-runtimes", "node", url];
+  const args = withBotFallbacks(
+    ["-J", "--flat-playlist", "--no-warnings", "--skip-download", "--js-runtimes", "node"],
+    false,
+  );
+  args.push(url);
   const res = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
     let settled = false;
     const to = setTimeout(() => {
@@ -192,7 +213,7 @@ export function startDownload(opts: DownloadOptions): Job {
     "-o",
     path.join(STAGING_DIR, adv.outputTemplate.trim() || "%(title)s [%(id)s].%(ext)s"),
   );
-  args.push(...buildAdvancedArgs(adv));
+  args.push(...withBotFallbacks(buildAdvancedArgs(adv), true));
   args.push(opts.url);
 
   job.status = "starting";
